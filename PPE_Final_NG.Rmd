@@ -1,0 +1,231 @@
+---
+title: "PPE_Final_NG"
+output: html_document
+date: "2024-06-03"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("C:/Users/whatt/iCloudDrive/UZH/Master/FS24/Polito/PPE")
+
+library(ggplot2)
+library(readr)
+library(dplyr)
+library(texreg)
+library(MASS)
+library("glm.predict")
+```
+
+```{r}
+dataset_ppe <- read_csv("country.csv")
+
+names(dataset_ppe)
+
+names(dataset_ppe)[names(dataset_ppe) == "Country"] <- "cntry"
+names(dataset_ppe)[names(dataset_ppe) == "ORDINAL CCPI Overall: Effectiveness of Country regarding Paris Agreement"] <- "effect_CCPI_ORD"
+names(dataset_ppe)[names(dataset_ppe) =="METRIC CCPI Overall: Effectiveness of Country regarding Paris Agreement"] <- "effect_CCPI_METRIC"
+names(dataset_ppe)[names(dataset_ppe) == "METRIC CCPI Climate Policy"] <- "clim_pol_CCPI_METRIC"
+names(dataset_ppe)[names(dataset_ppe) == "METRIC CCPI GHG Emissions"] <- "ghg_emiss_CCPI_METRIC"
+names(dataset_ppe)[names(dataset_ppe) == "ORDINAL Climate Action Tracker (EU countries not differentiated)"] <- "effect_climact_trak_ORD"
+names(dataset_ppe)[names(dataset_ppe) == "Last election"] <- "last_elect_yr"
+names(dataset_ppe)[names(dataset_ppe) == "Gov econ. Direction; Left 0 - Right 10 [if several parties -> mean of the parties w/o weighting based on seats]"] <- "gov_lr_econ"
+names(dataset_ppe)[names(dataset_ppe) == "Green parties seat percentage"] <- "green_seat_perc"
+names(dataset_ppe)[names(dataset_ppe) == "Conservative parties seat percentag"] <- "cons_seat_perc"
+names(dataset_ppe)[names(dataset_ppe) == "Fossil fuel consumption per capita (kwh), 2022"] <- "fos_fuel_consump_pc_2022"
+names(dataset_ppe)[names(dataset_ppe)== "Renewables consumption per capita (kwh), 2022"] <- "renew_consump_pc_2022"
+names(dataset_ppe)[names(dataset_ppe)== "(Very much like me) 1-6 (Unlike me) Public perception of climate issue (specify question) #ESS [Now I will briefly describe some people. Please listen to each description and tell me how much each person is or is not like you. Use this card for your answer. She/he strongly believes that people should care for nature. Looking after the environment is important to her/him.\n\nValue\tCategory\n1\tVery much like me\n2\tLike me\n3\tSomewhat like me\n4\tA little like me\n5\tNot like me\n6\tNot like me at all\n7\tRefusal*\n8\tDon't know*\n9\tNo answer*]"] <- "pub_perc_clim_ESS"
+names(dataset_ppe)[names(dataset_ppe)=="ESS switched"] <- "pub_perc_clim_ESS_SWITCHED"
+names(dataset_ppe)[names(dataset_ppe)=="(not at all concerned) 1-5 (very concerned) #ISSP: Q6 How concerned in environmental issues?"] <- "pub_perc_clim_ISSP"
+names(dataset_ppe)[names(dataset_ppe)=="(not serious at all) 0-4 (very serious) Lapop: Seriousness of Climate Change env2b; already standardised"] <- "pub_perc_clim_LAPOP"
+names(dataset_ppe)[names(dataset_ppe)=="(0-100%) Share of people who believe in climate change and think it's a serious threat to humanity  -> a bit less precise; which is why it will not be combined with other existing data  [https://ourworldindata.org/grapher/share-believe-climate]"]<-"pub_perc_clim_OWD"
+names(dataset_ppe)[names(dataset_ppe)=="Other sources (see comment)"] <- "pub_perc_clim_oth_sour"
+names(dataset_ppe)[names(dataset_ppe)=="Standardised Public Opinion"] <-"pub_perc_clim_stand_fin"
+names(dataset_ppe)[names(dataset_ppe)=="Public opionion consilidated: 1: Not concerned about environmental issues / do not care about nature & environment; 2: Moderately concerned about environmental issues / moderately care for nature & enivornment; 3: Concerned about environmental issues / cares about nature & environment; thus: ESS 1&2 = 1, 3 = 2, 4&5 = 3; ISSP 1&2= 1, 3 = 2; 4&5 = 3."]<- "pubc_perc_old_cons"
+names(dataset_ppe)[names(dataset_ppe) == "ETS"] <- "ets_dummy"
+names(dataset_ppe)[names(dataset_ppe) == "Subsidies"] <- "subsid_dummy"
+names(dataset_ppe)[names(dataset_ppe) == "Carbon Taxes"] <- "carb_tax_dummy"
+names(dataset_ppe)[names(dataset_ppe) == "Bans on Fossil Fuels (Source: Wikipedia, if you have a better one, please let me know)"] <- "ban_fos_fuel"
+names(dataset_ppe)[names(dataset_ppe) == "EU Dummy"] <- "eu_dummy"
+
+
+``` 
+
+Visualisations of variables:
+```{r}
+### Variable 1 (CCPI metric):
+
+df <- dataset_ppe %>%
+  filter(!is.na(effect_CCPI_METRIC)) %>%
+  arrange(effect_CCPI_METRIC)
+
+# Create a color gradient from dark red to light green
+color_palette <- colorRampPalette(c("#8B0000", "#FF4500", "#FFD700", "#90EE90"))
+
+# Create the scatter plot with ordered countries
+ccpi_met <- ggplot(df, aes(x = reorder(cntry, effect_CCPI_METRIC), y = effect_CCPI_METRIC)) +
+  geom_point(aes(color = effect_CCPI_METRIC), size = 3) +  # Color points by CCPI score
+  scale_color_gradientn(colors = color_palette(100)) +  # Apply gradient
+  labs(title = "CCPI Overall: Effectiveness of Country regarding Paris Agreement",
+       x = "Country", y = "CCPI Score") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) +  # Rotate x-axis labels
+  scale_x_discrete(guide = guide_axis(n.dodge = 2)) +  # Adjust x-axis labels
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, margin = margin(t = 0.5, r = 0, b = 0, l = 0)))   # 
+
+print(ccpi_met)
+
+```
+
+```{r}
+### Variable 2 (CCPI Climate Policy metric)
+
+df <- dataset_ppe %>%
+  filter(!is.na(clim_pol_CCPI_METRIC)) %>%
+  arrange(clim_pol_CCPI_METRIC)
+
+# Create scatterplot with country labels
+ccpi_met_pol <- ggplot(df, aes(x = reorder(cntry, clim_pol_CCPI_METRIC), y = clim_pol_CCPI_METRIC)) +
+  geom_point(aes(color = clim_pol_CCPI_METRIC), size = 3) +  # Color points by CCPI score
+  scale_color_gradientn(colors = color_palette(100)) +  # 
+  labs(title = "CCPI Climate Policy: Assessment of policy selection",
+       x = "Country", y = "CCPI Score Policy") +
+  theme_minimal() +
+  scale_x_discrete(guide = guide_axis(n.dodge = 2))  +
+   theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, margin = margin(t = 0.5, r = 0, b = 0, l = 0)))   # Rotate x-axis labels and adjust spacing
+
+print(ccpi_met_pol)
+```
+
+```{r}
+### Variable 3 (CCPI GHG Emissions metric)
+df <- dataset_ppe %>%
+  filter(!is.na(ghg_emiss_CCPI_METRIC)) %>%
+  arrange(ghg_emiss_CCPI_METRIC)
+
+# Create scatterplot with country labels
+ccpi_met_emiss <- ggplot(df, aes(x = reorder(cntry, ghg_emiss_CCPI_METRIC), y = ghg_emiss_CCPI_METRIC)) +
+  geom_point(aes(color = ghg_emiss_CCPI_METRIC), size = 3) +  # Color points by CCPI score
+  scale_color_gradientn(colors = color_palette(100)) +  
+  labs(title = "CCPI GHG Emissions: Assessment of countries' emissions",
+       x = "Country", y = "CCPI Score GHG Emissions") +
+  theme_minimal() +
+  scale_x_discrete(guide = guide_axis(n.dodge = 2)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, margin = margin(t = 0.5, r = 0, b = 0, l = 0)))   #   #
+
+print(ccpi_met_emiss)
+```
+
+```{r}
+### Variable 4: ETS Dummy
+dataset_ppe_filtered <- dataset_ppe[!is.na(dataset_ppe$ets_dummy), ]
+
+# Rename factor levels to "No" and "Yes"
+dataset_ppe_filtered$ets_dummy_2 <- factor(dataset_ppe_filtered$ets_dummy, levels = c(0, 1), labels = c("No", "Yes"))
+
+# Create the plot
+ets_d <- ggplot(dataset_ppe_filtered, aes(x = ets_dummy_2)) +
+  geom_bar(fill = "skyblue", color = "black") +
+  labs(title = "Existence of an Emission Trading System",
+       x = "",
+       y = "") +  # Remove the "Count" label on the y-axis
+  theme_minimal() +
+  scale_x_discrete(drop = FALSE) +  # Ensure all factor levels are shown on the x-axis
+  geom_text(stat = "count", aes(label = ..count..), vjust = -0.5)  # Add exact count on the bars
+
+print(ets_d)
+```
+
+```{r}
+### Variable 5: Subsidies Dummy
+dataset_ppe_filtered_5 <- dataset_ppe[!is.na(dataset_ppe$subsid_dummy), ]
+
+dataset_ppe_filtered_5$subsid_dummy_2 <- factor(dataset_ppe_filtered_5$subsid_dummy, levels = c(0, 1), labels = c("No", "Yes"))
+
+sub_d <- ggplot(dataset_ppe_filtered_5, aes(x = subsid_dummy_2)) +
+  geom_bar(fill = "#85bb65", color = "black") +
+  labs(title = "Existence of Subsidies for Clean Energy/Renewables",
+       x = "",
+       y = "") +
+  theme_minimal() +
+  scale_x_discrete(drop = FALSE) +  # Ensure all factor levels are shown on the x-axis
+  geom_text(stat = "count", aes(label = ..count..), vjust = -0.5) 
+
+print(sub_d)
+```
+
+```{r}
+### Variable 16: Carbon Tax Dummy
+dataset_ppe_filtered_6 <- dataset_ppe[!is.na(dataset_ppe$carb_tax_dummy), ]
+
+dataset_ppe_filtered_6$carb_tax_dummy_2 <- factor(dataset_ppe_filtered_6$carb_tax_dummy, levels = c(0, 1), labels = c("No", "Yes"))
+
+carb_tax_d <- ggplot(dataset_ppe_filtered_6, aes(x = carb_tax_dummy_2)) +
+  geom_bar(fill = "#625D5D", color = "black") +
+  labs(title = "Existence of Carbon Taxes",
+       x = "",
+       y = "") +
+  theme_minimal() +
+  scale_x_discrete(drop = FALSE) + # Ensure all factor levels are shown on the x-axis
+  geom_text(stat = "count", aes(label = ..count..), vjust = -0.5) 
+print(carb_tax_d)
+```
+
+```{r}
+### Variable 7: Bans on Fossil Fuels Dummy
+dataset_ppe_filtered_7 <- dataset_ppe[!is.na(dataset_ppe$ban_fos_fuel), ]
+
+dataset_ppe_filtered_7$ban_fos_fuel_2 <- factor(dataset_ppe_filtered_6$ban_fos_fuel, levels = c(0, 1), labels = c("No", "Yes"))
+
+ban_fossil_fuel <- ggplot(dataset_ppe_filtered_7, aes(x = ban_fos_fuel_2)) +
+  geom_bar(fill = "#B38614", color = "black") +
+  labs(title = "Existence of Bans on Fossil Fuels",
+       x = "",
+       y = "") +
+  theme_minimal() +
+  scale_x_discrete(drop = FALSE) +  # Ensure all factor levels are shown on the x-axis
+  geom_text(stat = "count", aes(label = ..count..), vjust = -0.5) 
+print(ban_fossil_fuel)
+```
+
+Regressions for Instruments
+```{r}
+# ETS
+ets_model <- glm(formula = ets_dummy ~ gov_lr_econ + fos_fuel_consump_pc_2022 + renew_consump_pc_2022 +pub_perc_clim_stand_fin +eu_dummy, family ="binomial", data= dataset_ppe)
+
+texreg(ets_model, digits=5, leading.zero = FALSE)
+
+# Subsidies
+subsidies_model <- glm(formula = subsid_dummy ~ gov_lr_econ+ fos_fuel_consump_pc_2022 + renew_consump_pc_2022 +pub_perc_clim_stand_fin +eu_dummy, family ="binomial", data= dataset_ppe)
+
+texreg(subsidies_model, digits=5, leading.zero = FALSE)
+
+# Carbon Tax
+carbontax_model <- glm(formula = carb_tax_dummy ~ gov_lr_econ  + fos_fuel_consump_pc_2022 + renew_consump_pc_2022 +pub_perc_clim_stand_fin +eu_dummy, family ="binomial", data= dataset_ppe)
+
+texreg(carbontax_model, digits=5, leading.zero = FALSE)
+
+# Fossil Fuel Ban
+fossilfuel_ban_model <- glm(formula = ban_fos_fuel ~ gov_lr_econ + fos_fuel_consump_pc_2022 + renew_consump_pc_2022 +pub_perc_clim_stand_fin +eu_dummy, family ="binomial", data= dataset_ppe)
+
+texreg(fossilfuel_ban_model, digits=5, leading.zero = FALSE)
+```
+
+Regression for Effectiveness
+```{r}
+# ETS
+IPCC_metr_model_ets_govlrecon  <- lm(effect_CCPI_METRIC ~ ets_dummy + gov_lr_econ + fos_fuel_consump_pc_2022 + renew_consump_pc_2022 +pub_perc_clim_stand_fin +eu_dummy, data= dataset_ppe)
+texreg(IPCC_metr_model_ets_govlrecon, digits=5, leading.zero = FALSE)
+
+# Subsidies
+IPCC_metr_model_subs_govlrecon  <- lm(effect_CCPI_METRIC ~ subsid_dummy + gov_lr_econ + fos_fuel_consump_pc_2022 + renew_consump_pc_2022 +pub_perc_clim_stand_fin +eu_dummy, data= dataset_ppe)
+texreg(IPCC_metr_model_subs_govlrecon, digits=5, leading.zero = FALSE)
+
+# Carbon tax
+IPCC_metr_model_carbtax_govlrecon  <- lm(effect_CCPI_METRIC ~ carb_tax_dummy + gov_lr_econ + fos_fuel_consump_pc_2022 + renew_consump_pc_2022 +pub_perc_clim_stand_fin +eu_dummy, data= dataset_ppe)
+texreg(IPCC_metr_model_carbtax_govlrecon, digits=5, leading.zero = FALSE)
+
+# Ban of fossil fuel
+IPCC_metr_model_banfosfuel_govlrecon  <- lm(effect_CCPI_METRIC ~ ban_fos_fuel + gov_lr_econ + fos_fuel_consump_pc_2022 + renew_consump_pc_2022 +pub_perc_clim_stand_fin +eu_dummy, data= dataset_ppe)
+texreg(IPCC_metr_model_banfosfuel_govlrecon, digits=5, leading.zero = FALSE)
+
+```
